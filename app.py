@@ -47,7 +47,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Header
-st.markdown('<div class="main-header">🏥 Pneumonia Detection System</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">Pneumonia Detection System</div>', unsafe_allow_html=True)
 
 # Subtitle and disclaimer
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -242,4 +242,4 @@ if img:
                 st.success("High confidence prediction. However, always verify with medical professionals.")
 else:
     st.markdown("---")
-    st.info("👆 Please upload a chest X-ray image or select a sample image from the sidebar to begin analysis.")
+    st.info("Please upload a chest X-ray image or select a sample image from the sidebar to begin analysis.")
