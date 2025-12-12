@@ -55,7 +55,7 @@ with col2:
     st.markdown("""
     <div style='text-align: center; margin-bottom: 2rem;'>
         <p style='font-size: 1.1rem; color: #666;'>
-            AI-powered chest X-ray analysis for pneumonia detection
+            Chest X-ray analysis for pneumonia detection
         </p>
     </div>
     """, unsafe_allow_html=True)
