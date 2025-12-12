@@ -61,7 +61,7 @@ with col2:
     """, unsafe_allow_html=True)
     
     # Medical disclaimer
-    with st.expander("⚠️ Important Medical Disclaimer", expanded=False):
+    with st.expander("Important Medical Disclaimer", expanded=False):
         st.warning("""
         **This tool is for educational and research purposes only.**
         
@@ -80,11 +80,11 @@ model = get_model()
 
 # Sidebar
 with st.sidebar:
-    st.markdown("## 📋 Navigation")
+    st.markdown("## Navigation")
     
     st.markdown("---")
     
-    st.markdown("### 📸 Sample Images")
+    st.markdown("### Sample Images")
     sample_files = os.listdir("samples")
     sample_files = [f for f in sample_files if f.lower().endswith((".png", ".jpg", ".jpeg"))]
     sample_choice = st.selectbox(
@@ -95,11 +95,11 @@ with st.sidebar:
     
     st.markdown("---")
     
-    st.markdown("### 📖 How to Use")
+    st.markdown("### How to Use")
     with st.expander("Step-by-step guide"):
         st.markdown("""
         1. **Upload** a chest X-ray image (PNG/JPG) or **select** a sample from above
-        2. Click **🔍 Analyze Image** to run the prediction
+        2. Click **Analyze Image** to run the prediction
         3. Review the **prediction result** and **confidence score**
         4. Examine the **heatmap overlay** showing key regions
         5. Compare original and analyzed images side-by-side
@@ -107,7 +107,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    st.markdown("### ℹ️ About")
+    st.markdown("### About")
     st.info("""
     This application uses deep learning to analyze chest X-ray images and detect signs of pneumonia.
     
@@ -122,7 +122,7 @@ col1, col2 = st.columns([2, 1])
 
 with col1:
     uploaded = st.file_uploader(
-        "📤 Upload Chest X-ray Image", 
+        "Upload Chest X-ray Image", 
         type=["png", "jpg", "jpeg"],
         help="Upload a chest X-ray image in PNG, JPG, or JPEG format"
     )
@@ -139,10 +139,10 @@ with col2:
 if sample_choice:
     img_path = os.path.join("samples", sample_choice)
     img = Image.open(img_path).convert("RGB")
-    st.info(f"📁 Using sample image: **{sample_choice}**")
+    st.info(f"Using sample image: **{sample_choice}**")
 elif uploaded:
     img = Image.open(io.BytesIO(uploaded.read())).convert("RGB")
-    st.success("✅ Image uploaded successfully!")
+    st.success("Image uploaded successfully!")
 else:
     img = None
 
@@ -151,14 +151,14 @@ if img:
     st.markdown("---")
     
     # Display original image
-    st.markdown("### 📷 Input Image")
+    st.markdown("### Input Image")
     st.image(img, caption="Original Chest X-ray", use_container_width=True)
     
     # Prediction button
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         predict_button = st.button(
-            "🔍 Analyze Image", 
+            "Analyze Image", 
             type="primary",
             use_container_width=True,
             help="Click to analyze the image for pneumonia detection"
@@ -166,11 +166,11 @@ if img:
     
     # Run prediction
     if predict_button:
-        with st.spinner("🔄 Analyzing image... This may take a few seconds."):
+        with st.spinner("Analyzing image... This may take a few seconds."):
             label, prob, gradcam = predict(img, model)
         
         st.markdown("---")
-        st.markdown("### 📊 Analysis Results")
+        st.markdown("### Analysis Results")
         
         # Determine colors and styling based on prediction
         if label == "Normal":
@@ -211,19 +211,19 @@ if img:
         st.markdown("---")
         
         # Side-by-side comparison
-        st.markdown("### 🔍 Visual Analysis")
+        st.markdown("### Visual Analysis")
         st.markdown("Compare the original image with the heatmap overlay highlighting key regions:")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.image(img, caption="📷 Original X-ray", use_container_width=True)
+            st.image(img, caption="Original X-ray", use_container_width=True)
         
         with col2:
-            st.image(gradcam, caption="🔥 Heatmap Overlay (Key Regions)", use_container_width=True)
+            st.image(gradcam, caption="Heatmap Overlay (Key Regions)", use_container_width=True)
         
         # Additional information
-        with st.expander("📋 Detailed Analysis Information"):
+        with st.expander("Detailed Analysis Information"):
             st.markdown(f"""
             **Prediction Details:**
             - **Result:** {label}
@@ -237,9 +237,9 @@ if img:
             """)
             
             if prob < 0.6:
-                st.warning("⚠️ Low confidence prediction. The result may be less reliable. Please consult a medical professional.")
+                st.warning("Low confidence prediction. The result may be less reliable. Please consult a medical professional.")
             elif prob > 0.9:
-                st.success("✅ High confidence prediction. However, always verify with medical professionals.")
+                st.success("High confidence prediction. However, always verify with medical professionals.")
 else:
     st.markdown("---")
     st.info("👆 Please upload a chest X-ray image or select a sample image from the sidebar to begin analysis.")
