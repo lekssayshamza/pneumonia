@@ -22,7 +22,7 @@ def is_valid_password(password):
 
 def show_login_page():
     """Display login page"""
-    st.markdown('<div class="main-header">🔐 Login</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">Login</div>', unsafe_allow_html=True)
     
     with st.form("login_form"):
         username = st.text_input("Username", placeholder="Enter your username")
@@ -51,7 +51,7 @@ def show_login_page():
 
 def show_register_page():
     """Display registration page"""
-    st.markdown('<div class="main-header">📝 Register</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">Register</div>', unsafe_allow_html=True)
     
     with st.form("register_form"):
         username = st.text_input("Username", placeholder="Choose a username (3-20 characters)")

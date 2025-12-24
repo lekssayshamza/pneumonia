@@ -7,7 +7,14 @@ from utils.model import load_model, predict
 from utils.auth import check_authentication, logout
 from utils.history import show_history_page
 from utils.database import save_prediction
-from utils.report_generator import create_pdf_report
+from utils.report_generator import (
+    create_pdf_report, 
+    create_excel_report, 
+    create_word_report, 
+    create_csv_report, 
+    create_json_report, 
+    create_html_report
+)
 import os
 
 # Page configuration
@@ -67,10 +74,10 @@ model = get_model()
 with st.sidebar:
     # User info and logout
     if 'user' in st.session_state:
-        st.markdown(f"### 👤 Welcome, {st.session_state['user']['username']}!")
-        st.markdown(f"📧 {st.session_state['user']['email']}")
+        st.markdown(f"### Welcome, {st.session_state['user']['username']}!")
+        st.markdown(f"{st.session_state['user']['email']}")
         st.markdown("---")
-        if st.button("🚪 Logout", use_container_width=True, type="secondary"):
+        if st.button("Logout", use_container_width=True, type="secondary"):
             logout()
         st.markdown("---")
     
@@ -109,7 +116,7 @@ with st.sidebar:
     """)
 
 # Navigation tabs
-tab1, tab2 = st.tabs(["🏥 Detection", "📊 History"])
+tab1, tab2 = st.tabs(["Detection", "History"])
 
 # Detection Tab
 with tab1:
@@ -206,9 +213,16 @@ with tab1:
                 user_id = st.session_state['user']['id']
                 success, result = save_prediction(user_id, label, prob, img)
                 if success:
-                    st.success("✅ Prediction saved to history!")
+                    st.success("Prediction saved to history!")
                 else:
-                    st.warning(f"⚠️ Could not save prediction: {result}")
+                    st.warning(f"Could not save prediction: {result}")
+        
+        # Display results if prediction exists (either from current or previous analysis)
+        if 'last_prediction' in st.session_state:
+            pred = st.session_state['last_prediction']
+            label = pred['label']
+            prob = pred['confidence']
+            gradcam = pred['heatmap']
             
             st.markdown("---")
             st.markdown("### Analysis Results")
@@ -258,80 +272,252 @@ with tab1:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.image(img, caption="Original X-ray", use_container_width=True)
+                st.image(pred['image'], caption="Original X-ray", use_container_width=True)
             
             with col2:
                 st.image(gradcam, caption="Heatmap Overlay (Key Regions)", use_container_width=True)
             
-            # Download Report Button
+            # Download Report Section
             st.markdown("---")
             st.markdown("### Download Report")
-            st.markdown("Generate a PDF report for the patient with all analysis details.")
+            st.markdown("Generate reports in multiple formats for the patient with all analysis details.")
             
-            if 'last_prediction' in st.session_state and 'user' in st.session_state:
+            if 'user' in st.session_state:
                 pred = st.session_state['last_prediction']
                 username = st.session_state['user']['username']
                 email = st.session_state['user']['email']
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 
-                # Create temporary file for PDF
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                    pdf_path = tmp_file.name
+                # Create columns for download buttons
+                col1, col2 = st.columns(2)
                 
-                try:
-                    # Generate PDF
-                    create_pdf_report(
-                        username=username,
-                        email=email,
-                        prediction_label=pred['label'],
-                        confidence=pred['confidence'],
-                        original_image=pred['image'],
-                        heatmap_image=pred['heatmap'],
-                        output_path=pdf_path
-                    )
-                    
-                    # Read PDF file
-                    with open(pdf_path, 'rb') as pdf_file:
-                        pdf_bytes = pdf_file.read()
-                    
-                    # Download button
-                    st.download_button(
-                        label="📄 Download PDF Report",
-                        data=pdf_bytes,
-                        file_name=f"Pneumonia_Report_{username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                        mime="application/pdf",
-                        type="primary",
-                        use_container_width=True,
-                        help="Download a comprehensive PDF report with all analysis details"
-                    )
-                    
-                    # Clean up
-                    os.unlink(pdf_path)
-                    
-                except Exception as e:
-                    st.error(f"Error generating PDF report: {str(e)}")
-                    if os.path.exists(pdf_path):
+                with col1:
+                    # PDF Report
+                    pdf_path = None
+                    try:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                            pdf_path = tmp_file.name
+                        
+                        create_pdf_report(
+                            username=username,
+                            email=email,
+                            prediction_label=pred['label'],
+                            confidence=pred['confidence'],
+                            original_image=pred['image'],
+                            heatmap_image=pred['heatmap'],
+                            output_path=pdf_path
+                        )
+                        
+                        with open(pdf_path, 'rb') as pdf_file:
+                            pdf_bytes = pdf_file.read()
+                        
+                        st.download_button(
+                            label="📄 Download PDF Report",
+                            data=pdf_bytes,
+                            file_name=f"Pneumonia_Report_{username}_{timestamp}.pdf",
+                            mime="application/pdf",
+                            type="primary",
+                            use_container_width=True,
+                            help="Download a comprehensive PDF report"
+                        )
+                        
                         os.unlink(pdf_path)
-            
-            st.markdown("---")
-            
-            # Additional information
-            with st.expander("Detailed Analysis Information"):
-                st.markdown(f"""
-                **Prediction Details:**
-                - **Result:** {label}
-                - **Confidence:** {prob_display:.2f}%
-                - **Interpretation:** {'The model detected signs consistent with pneumonia. Please consult a healthcare professional for proper diagnosis.' if label == 'Pneumonia' else 'The model did not detect signs of pneumonia. However, this is not a substitute for professional medical evaluation.'}
+                    except Exception as e:
+                        st.error(f"Error generating PDF: {str(e)}")
+                        if pdf_path and os.path.exists(pdf_path):
+                            os.unlink(pdf_path)
+                    
+                    # Excel Report
+                    excel_path = None
+                    try:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
+                            excel_path = tmp_file.name
+                        
+                        create_excel_report(
+                            username=username,
+                            email=email,
+                            prediction_label=pred['label'],
+                            confidence=pred['confidence'],
+                            original_image=pred['image'],
+                            heatmap_image=pred['heatmap'],
+                            output_path=excel_path
+                        )
+                        
+                        with open(excel_path, 'rb') as excel_file:
+                            excel_bytes = excel_file.read()
+                        
+                        st.download_button(
+                            label="📊 Download Excel Report",
+                            data=excel_bytes,
+                            file_name=f"Pneumonia_Report_{username}_{timestamp}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            help="Download report in Excel format"
+                        )
+                        
+                        os.unlink(excel_path)
+                    except Exception as e:
+                        st.error(f"Error generating Excel: {str(e)}")
+                        if excel_path and os.path.exists(excel_path):
+                            os.unlink(excel_path)
+                    
+                    # Word Report
+                    word_path = None
+                    try:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
+                            word_path = tmp_file.name
+                        
+                        create_word_report(
+                            username=username,
+                            email=email,
+                            prediction_label=pred['label'],
+                            confidence=pred['confidence'],
+                            original_image=pred['image'],
+                            heatmap_image=pred['heatmap'],
+                            output_path=word_path
+                        )
+                        
+                        with open(word_path, 'rb') as word_file:
+                            word_bytes = word_file.read()
+                        
+                        st.download_button(
+                            label="📝 Download Word Report",
+                            data=word_bytes,
+                            file_name=f"Pneumonia_Report_{username}_{timestamp}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True,
+                            help="Download report in Word format"
+                        )
+                        
+                        os.unlink(word_path)
+                    except Exception as e:
+                        st.error(f"Error generating Word: {str(e)}")
+                        if word_path and os.path.exists(word_path):
+                            os.unlink(word_path)
                 
-                **About the Heatmap:**
-                - Red/orange regions indicate areas that most influenced the prediction
-                - Darker regions are more significant in the model's decision
-                - This visualization helps understand what the AI is focusing on
-                """)
+                with col2:
+                    # CSV Report
+                    csv_path = None
+                    try:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_file:
+                            csv_path = tmp_file.name
+                        
+                        create_csv_report(
+                            username=username,
+                            email=email,
+                            prediction_label=pred['label'],
+                            confidence=pred['confidence'],
+                            original_image=pred['image'],
+                            heatmap_image=pred['heatmap'],
+                            output_path=csv_path
+                        )
+                        
+                        with open(csv_path, 'rb') as csv_file:
+                            csv_bytes = csv_file.read()
+                        
+                        st.download_button(
+                            label="📋 Download CSV Report",
+                            data=csv_bytes,
+                            file_name=f"Pneumonia_Report_{username}_{timestamp}.csv",
+                            mime="text/csv",
+                            use_container_width=True,
+                            help="Download report in CSV format"
+                        )
+                        
+                        os.unlink(csv_path)
+                    except Exception as e:
+                        st.error(f"Error generating CSV: {str(e)}")
+                        if csv_path and os.path.exists(csv_path):
+                            os.unlink(csv_path)
+                    
+                    # JSON Report
+                    json_path = None
+                    try:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as tmp_file:
+                            json_path = tmp_file.name
+                        
+                        create_json_report(
+                            username=username,
+                            email=email,
+                            prediction_label=pred['label'],
+                            confidence=pred['confidence'],
+                            original_image=pred['image'],
+                            heatmap_image=pred['heatmap'],
+                            output_path=json_path
+                        )
+                        
+                        with open(json_path, 'rb') as json_file:
+                            json_bytes = json_file.read()
+                        
+                        st.download_button(
+                            label="📦 Download JSON Report",
+                            data=json_bytes,
+                            file_name=f"Pneumonia_Report_{username}_{timestamp}.json",
+                            mime="application/json",
+                            use_container_width=True,
+                            help="Download report in JSON format"
+                        )
+                        
+                        os.unlink(json_path)
+                    except Exception as e:
+                        st.error(f"Error generating JSON: {str(e)}")
+                        if json_path and os.path.exists(json_path):
+                            os.unlink(json_path)
+                    
+                    # HTML Report
+                    html_path = None
+                    try:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.html') as tmp_file:
+                            html_path = tmp_file.name
+                        
+                        create_html_report(
+                            username=username,
+                            email=email,
+                            prediction_label=pred['label'],
+                            confidence=pred['confidence'],
+                            original_image=pred['image'],
+                            heatmap_image=pred['heatmap'],
+                            output_path=html_path
+                        )
+                        
+                        with open(html_path, 'rb') as html_file:
+                            html_bytes = html_file.read()
+                        
+                        st.download_button(
+                            label="🌐 Download HTML Report",
+                            data=html_bytes,
+                            file_name=f"Pneumonia_Report_{username}_{timestamp}.html",
+                            mime="text/html",
+                            use_container_width=True,
+                            help="Download report in HTML format"
+                        )
+                        
+                        os.unlink(html_path)
+                    except Exception as e:
+                        st.error(f"Error generating HTML: {str(e)}")
+                        if html_path and os.path.exists(html_path):
+                            os.unlink(html_path)
                 
-                if prob < 0.6:
-                    st.warning("Low confidence prediction. The result may be less reliable. Please consult a medical professional.")
-                elif prob > 0.9:
-                    st.success("High confidence prediction. However, always verify with medical professionals.")
+                st.markdown("---")
+                
+                # Additional information
+                with st.expander("Detailed Analysis Information"):
+                    st.markdown(f"""
+                    **Prediction Details:**
+                    - **Result:** {label}
+                    - **Confidence:** {prob_display:.2f}%
+                    - **Interpretation:** {'The model detected signs consistent with pneumonia. Please consult a healthcare professional for proper diagnosis.' if label == 'Pneumonia' else 'The model did not detect signs of pneumonia. However, this is not a substitute for professional medical evaluation.'}
+                    
+                    **About the Heatmap:**
+                    - Red/orange regions indicate areas that most influenced the prediction
+                    - Darker regions are more significant in the model's decision
+                    - This visualization helps understand what the AI is focusing on
+                    """)
+                    
+                    if prob < 0.6:
+                        st.warning("Low confidence prediction. The result may be less reliable. Please consult a medical professional.")
+                    elif prob > 0.9:
+                        st.success("High confidence prediction. However, always verify with medical professionals.")
     else:
         st.markdown("---")
         st.info("Please upload a chest X-ray image or select a sample image from the sidebar to begin analysis.")

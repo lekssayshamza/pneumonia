@@ -3,3 +3,6 @@ tensorflow
 numpy
 pillow
 reportlab
+openpyxl
+python-docx
+pandas

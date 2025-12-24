@@ -4,7 +4,7 @@ from datetime import datetime
 
 def show_history_page():
     """Display the history page with all past predictions"""
-    st.markdown('<div class="main-header">📊 Prediction History</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">Prediction History</div>', unsafe_allow_html=True)
     
     if 'user' not in st.session_state:
         st.error("You must be logged in to view history.")
@@ -110,7 +110,7 @@ def show_history_page():
                 st.markdown(f"**Date:** {formatted_date}")
                 
                 # Delete button
-                if st.button("🗑️ Delete", key=f"delete_{pred['id']}", use_container_width=True):
+                if st.button("Delete", key=f"delete_{pred['id']}", use_container_width=True):
                     if delete_prediction(pred['id'], user_id):
                         st.success("Prediction deleted!")
                         st.rerun()
