@@ -1,10 +1,25 @@
 from PIL import Image, ImageEnhance
 import numpy as np
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model as keras_load_model
 
 # Load the real model
 def load_model():
-    model = load_model("models/pneumonia_model.h5")
+    """
+    Load the trained pneumonia detection model from H5 file.
+    Returns:
+        model: Keras model object
+    Raises:
+        FileNotFoundError: If model file doesn't exist
+        Exception: If model loading fails
+    """
+    import os
+    model_path = "models/pneumonia_model.h5"
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(
+            f"Model file not found at {model_path}. "
+            "Please ensure pneumonia_model.h5 exists in the models/ directory."
+        )
+    model = keras_load_model(model_path)
     return model
 
 # Apply a simple heatmap overlay (placeholder for Grad-CAM)
@@ -28,8 +43,8 @@ def predict(image_pil, model):
     x = np.array(img)/255.0
     x = x[np.newaxis, ...]  # batch dimension
 
-    # Real prediction
-    prob = float(model.predict(x)[0][0])
+    # Real prediction (verbose=0 to suppress warnings in Streamlit)
+    prob = float(model.predict(x, verbose=0)[0][0])
     label = "Pneumonia" if prob > 0.5 else "Normal"
 
     # Placeholder Grad-CAM (can replace later with real one)

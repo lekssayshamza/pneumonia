@@ -6,3 +6,4 @@ reportlab
 openpyxl
 python-docx
 pandas
+scikit-learn

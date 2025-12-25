@@ -3,7 +3,7 @@ from PIL import Image
 import io
 import tempfile
 from datetime import datetime
-from utils.model import load_model, predict
+from utils.new_model import load_model, predict
 from utils.auth import check_authentication, logout
 from utils.history import show_history_page
 from utils.database import save_prediction
