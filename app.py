@@ -15,6 +15,7 @@ from utils.report_generator import (
     create_json_report, 
     create_html_report
 )
+from utils.chat_utils import get_ai_response
 import os
 
 # Page configuration
@@ -525,3 +526,108 @@ with tab1:
 # History Tab
 with tab2:
     show_history_page()
+
+# --------------------------------------------------------------------------
+# Floating Chat Interface (Bottom Right)
+# --------------------------------------------------------------------------
+
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Create the chat interface (Floating)
+# We don't use columns here because we position it absolutely/fixed with CSS
+
+# Use popover for the chat interface
+# The button text is an emoji to make it small and icon-like
+with st.popover("🤖", help="Chat with AI Assistant"):
+    col_header, col_clear = st.columns([3, 1])
+    with col_header:
+        st.markdown("### 🩺 Medical Assistant")
+    with col_clear:
+        if st.button("🗑️", help="Clear Chat History", key="clear_chat_btn"):
+            st.session_state.messages = []
+            st.rerun()
+    
+    # Container for chat messages
+    chat_container = st.container(height=400)
+    
+    with chat_container:
+        # Display chat messages from history
+        if not st.session_state.messages:
+             st.info("Hello! I'm your AI medical assistant. How can I help you today?")
+        
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+    # React to user input
+    if prompt := st.chat_input("Ask about pneumonia...", key="chat_input"):
+        # Display user message
+        with chat_container:
+            st.chat_message("user").markdown(prompt)
+        
+        # Add user message to history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        # Display assistant response
+        with chat_container:
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                message_placeholder.markdown("Thinking...")
+                
+                full_response = get_ai_response(st.session_state.messages)
+                message_placeholder.markdown(full_response)
+        
+        # Add assistant response to history
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
+        
+        # Rerun to update
+        st.rerun()
+
+# Custom CSS to style the popover button to look more like a floating circle button
+st.markdown("""
+<style>
+    /* Position the popover container fixed at the bottom right */
+    /* We use !important to ensure it overrides default Streamlit styling */
+    div[data-testid="stPopover"] {
+        position: fixed !important;
+        bottom: 30px !important;
+        right: 30px !important;
+        width: auto !important;
+        z-index: 99999 !important;
+    }
+
+    /* Style the button inside the popover container */
+    div[data-testid="stPopover"] > button {
+        border-radius: 50% !important;
+        width: 50px !important;
+        height: 50px !important;
+        padding: 0 !important;
+        font-size: 24px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+        border: none !important;
+        background-color: #4FC3F7 !important;
+        color: white !important;
+        transition: all 0.3s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    div[data-testid="stPopover"] > button:hover {
+        transform: scale(1.1) !important;
+        background-color: #039BE5 !important;
+        color: white !important;
+        box-shadow: 0 6px 14px rgba(0,0,0,0.4) !important;
+    }
+
+    /* Hide the default dropdown arrow/chevron */
+    div[data-testid="stPopover"] > button span[class*="e16nr0p33"] {
+        display: none !important;
+    }
+    div[data-testid="stPopover"] > button svg {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
