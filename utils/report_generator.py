@@ -18,18 +18,109 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import json
 import base64
 
-def create_pdf_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path):
+def create_digital_signature():
+    """
+    Create a professional digital signature image for reports
+    Returns a PIL Image with the signature
+    """
+    # Create signature image
+    width, height = 400, 120
+    img = PILImage.new('RGB', (width, height), color='white')
+    
+    from PIL import ImageDraw, ImageFont
+    
+    draw = ImageDraw.Draw(img)
+    
+    # Try to use a nice font, fallback to default if not available
+    try:
+        # Try to use a professional font
+        font_large = ImageFont.truetype("arial.ttf", 28)
+        font_small = ImageFont.truetype("arial.ttf", 12)
+    except:
+        try:
+            font_large = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
+            font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 12)
+        except:
+            font_large = ImageFont.load_default()
+            font_small = ImageFont.load_default()
+    
+    # Draw medical cross icon (simple representation)
+    icon_size = 30
+    icon_x = 20
+    icon_y = (height - icon_size) // 2
+    
+    # Draw a simple medical cross
+    cross_color = '#2c5aa0'
+    line_width = 4
+    # Vertical line
+    draw.rectangle([icon_x + icon_size//2 - line_width//2, icon_y, 
+                    icon_x + icon_size//2 + line_width//2, icon_y + icon_size], 
+                   fill=cross_color)
+    # Horizontal line
+    draw.rectangle([icon_x, icon_y + icon_size//2 - line_width//2, 
+                    icon_x + icon_size, icon_y + icon_size//2 + line_width//2], 
+                   fill=cross_color)
+    
+    # Draw organization name
+    org_name = "Keep Awareness Alive"
+    text_color = '#1a1a1a'
+    
+    # Get text dimensions
+    bbox = draw.textbbox((0, 0), org_name, font=font_large)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    
+    # Position text next to icon
+    text_x = icon_x + icon_size + 20
+    text_y = (height - text_height) // 2 - 10
+    
+    draw.text((text_x, text_y), org_name, fill=text_color, font=font_large)
+    
+    # Draw tagline
+    tagline = "Medical AI Analysis Platform"
+    tagline_color = '#666666'
+    bbox_tagline = draw.textbbox((0, 0), tagline, font=font_small)
+    tagline_width = bbox_tagline[2] - bbox_tagline[0]
+    tagline_height = bbox_tagline[3] - bbox_tagline[1]
+    
+    tagline_x = text_x
+    tagline_y = text_y + text_height + 5
+    
+    draw.text((tagline_x, tagline_y), tagline, fill=tagline_color, font=font_small)
+    
+    # Draw decorative line
+    line_y = height - 25
+    draw.line([text_x, line_y, width - 20, line_y], fill='#cccccc', width=1)
+    
+    # Add date
+    date_text = datetime.now().strftime("%B %d, %Y")
+    date_bbox = draw.textbbox((0, 0), date_text, font=font_small)
+    date_width = date_bbox[2] - date_bbox[0]
+    date_x = width - date_width - 20
+    date_y = line_y + 5
+    
+    draw.text((date_x, date_y), date_text, fill=tagline_color, font=font_small)
+    
+    return img
+
+def create_pdf_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path, 
+                      patient_name=None, patient_id=None, date_of_birth=None, gender=None, age=None):
     """
     Create a professional PDF report for the patient
     
     Args:
-        username: Patient/Doctor username
-        email: Patient/Doctor email
+        username: Doctor username
+        email: Doctor email
         prediction_label: "Normal" or "Pneumonia"
         confidence: Confidence score (0-1)
         original_image: PIL Image of original X-ray
         heatmap_image: PIL Image of heatmap overlay
         output_path: Path to save the PDF
+        patient_name: Patient name (optional)
+        patient_id: Patient ID (optional)
+        date_of_birth: Patient date of birth (optional)
+        gender: Patient gender (optional)
+        age: Patient age (optional)
     """
     # Create PDF document
     doc = SimpleDocTemplate(output_path, pagesize=letter,
@@ -81,11 +172,22 @@ def create_pdf_report(username, email, prediction_label, confidence, original_im
     elements.append(Paragraph("Patient Information", heading_style))
     
     # Create patient info table
-    patient_data = [
-        ['Doctor Name:', username],
-        ['Email:', email],
-        ['Report Date:', datetime.now().strftime("%B %d, %Y at %I:%M %p")]
-    ]
+    patient_data = []
+    if patient_name:
+        patient_data.append(['Patient Name:', patient_name])
+    if patient_id:
+        patient_data.append(['Patient ID:', patient_id])
+    if date_of_birth:
+        patient_data.append(['Date of Birth:', date_of_birth])
+    if gender:
+        patient_data.append(['Gender:', gender])
+    if age:
+        patient_data.append(['Age:', str(age)])
+    
+    # Doctor information
+    patient_data.append(['Doctor Name:', username])
+    patient_data.append(['Doctor Email:', email])
+    patient_data.append(['Report Date:', datetime.now().strftime("%B %d, %Y at %I:%M %p")])
     
     patient_table = Table(patient_data, colWidths=[2*inch, 4*inch])
     patient_table.setStyle(TableStyle([
@@ -216,8 +318,43 @@ def create_pdf_report(username, email, prediction_label, confidence, original_im
     """
     elements.append(Paragraph(disclaimer_text, disclaimer_style))
     
+    # Digital Signature Section
+    elements.append(Spacer(1, 0.4*inch))
+    elements.append(Paragraph("Digital Signature", heading_style))
+    elements.append(Spacer(1, 0.1*inch))
+    
+    # Create and add signature image
+    try:
+        signature_img = create_digital_signature()
+        signature_bytes = io.BytesIO()
+        signature_img.save(signature_bytes, format='PNG')
+        signature_bytes.seek(0)
+        
+        sig_img = ReportLabImage(signature_bytes, width=4*inch, height=1.2*inch)
+        elements.append(sig_img)
+    except Exception as e:
+        # Fallback to text if image creation fails
+        signature_style = ParagraphStyle(
+            'Signature',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.HexColor('#2c5aa0'),
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        elements.append(Paragraph("Keep Awareness Alive", signature_style))
+        footer_style = ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=8,
+            textColor=colors.HexColor('#6c757d'),
+            alignment=TA_CENTER
+        )
+        elements.append(Paragraph("Medical AI Analysis Platform", footer_style))
+    
+    elements.append(Spacer(1, 0.2*inch))
+    
     # Footer
-    elements.append(Spacer(1, 0.3*inch))
     footer_style = ParagraphStyle(
         'Footer',
         parent=styles['Normal'],
@@ -225,7 +362,6 @@ def create_pdf_report(username, email, prediction_label, confidence, original_im
         textColor=colors.HexColor('#6c757d'),
         alignment=TA_CENTER
     )
-    elements.append(Paragraph("Generated by Keep Awareness alive", footer_style))
     elements.append(Paragraph(f"Report ID: {datetime.now().strftime('%Y%m%d%H%M%S')}", footer_style))
     
     # Build PDF
@@ -233,7 +369,8 @@ def create_pdf_report(username, email, prediction_label, confidence, original_im
     return output_path
 
 
-def create_excel_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path):
+def create_excel_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path,
+                        patient_name=None, patient_id=None, date_of_birth=None, gender=None, age=None):
     """
     Create an Excel report for the patient
     
@@ -277,11 +414,21 @@ def create_excel_report(username, email, prediction_label, confidence, original_
     ws['A3'].font = heading_font
     ws.merge_cells('A3:B3')
     
-    patient_data = [
-        ['Doctor Name:', username],
-        ['Email:', email],
-        ['Report Date:', datetime.now().strftime("%B %d, %Y at %I:%M %p")]
-    ]
+    patient_data = []
+    if patient_name:
+        patient_data.append(['Patient Name:', patient_name])
+    if patient_id:
+        patient_data.append(['Patient ID:', patient_id])
+    if date_of_birth:
+        patient_data.append(['Date of Birth:', date_of_birth])
+    if gender:
+        patient_data.append(['Gender:', gender])
+    if age:
+        patient_data.append(['Age:', str(age)])
+    
+    patient_data.append(['Doctor Name:', username])
+    patient_data.append(['Doctor Email:', email])
+    patient_data.append(['Report Date:', datetime.now().strftime("%B %d, %Y at %I:%M %p")])
     
     for idx, (label, value) in enumerate(patient_data, start=4):
         ws[f'A{idx}'] = label
@@ -362,10 +509,36 @@ def create_excel_report(username, email, prediction_label, confidence, original_
     ws.row_dimensions[19].height = 50
     
     # Footer
-    ws['A21'] = f"Generated by Keep Awareness alive | Report ID: {datetime.now().strftime('%Y%m%d%H%M%S')}"
-    ws['A21'].font = Font(name='Arial', size=8)
-    ws.merge_cells('A21:B21')
-    ws['A21'].alignment = center_align
+    # Digital Signature Section
+    sig_row = 21
+    ws[f'A{sig_row}'] = "Digital Signature"
+    ws[f'A{sig_row}'].font = heading_font
+    ws.merge_cells(f'A{sig_row}:B{sig_row}')
+    
+    sig_row += 1
+    ws[f'A{sig_row}'] = "Keep Awareness Alive"
+    ws[f'A{sig_row}'].font = Font(name='Arial', size=14, bold=True, color='2c5aa0')
+    ws.merge_cells(f'A{sig_row}:B{sig_row}')
+    ws[f'A{sig_row}'].alignment = center_align
+    
+    sig_row += 1
+    ws[f'A{sig_row}'] = "Medical AI Analysis Platform"
+    ws[f'A{sig_row}'].font = Font(name='Arial', size=10, italic=True, color='666666')
+    ws.merge_cells(f'A{sig_row}:B{sig_row}')
+    ws[f'A{sig_row}'].alignment = center_align
+    
+    sig_row += 1
+    ws[f'A{sig_row}'] = datetime.now().strftime("%B %d, %Y")
+    ws[f'A{sig_row}'].font = Font(name='Arial', size=9, color='666666')
+    ws.merge_cells(f'A{sig_row}:B{sig_row}')
+    ws[f'A{sig_row}'].alignment = center_align
+    
+    # Footer
+    footer_row = sig_row + 2
+    ws[f'A{footer_row}'] = f"Report ID: {datetime.now().strftime('%Y%m%d%H%M%S')}"
+    ws[f'A{footer_row}'].font = Font(name='Arial', size=8)
+    ws.merge_cells(f'A{footer_row}:B{footer_row}')
+    ws[f'A{footer_row}'].alignment = center_align
     
     # Adjust column widths
     ws.column_dimensions['A'].width = 25
@@ -376,7 +549,8 @@ def create_excel_report(username, email, prediction_label, confidence, original_
     return output_path
 
 
-def create_word_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path):
+def create_word_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path,
+                       patient_name=None, patient_id=None, date_of_birth=None, gender=None, age=None):
     """
     Create a Word document report for the patient
     
@@ -398,15 +572,26 @@ def create_word_report(username, email, prediction_label, confidence, original_i
     # Patient Information
     doc.add_heading('Patient Information', level=1)
     
-    patient_table = doc.add_table(rows=3, cols=2)
+    # Build patient data list
+    patient_data = []
+    if patient_name:
+        patient_data.append(['Patient Name:', patient_name])
+    if patient_id:
+        patient_data.append(['Patient ID:', patient_id])
+    if date_of_birth:
+        patient_data.append(['Date of Birth:', date_of_birth])
+    if gender:
+        patient_data.append(['Gender:', gender])
+    if age:
+        patient_data.append(['Age:', str(age)])
+    
+    patient_data.append(['Doctor Name:', username])
+    patient_data.append(['Doctor Email:', email])
+    patient_data.append(['Report Date:', datetime.now().strftime("%B %d, %Y at %I:%M %p")])
+    
+    patient_table = doc.add_table(rows=len(patient_data), cols=2)
     patient_table.style = 'Light Grid Accent 1'
-    
-    patient_data = [
-        ['Doctor Name:', username],
-        ['Email:', email],
-        ['Report Date:', datetime.now().strftime("%B %d, %Y at %I:%M %p")]
-    ]
-    
+
     for i, (label, value) in enumerate(patient_data):
         patient_table.rows[i].cells[0].text = label
         patient_table.rows[i].cells[0].paragraphs[0].runs[0].bold = True
@@ -491,9 +676,40 @@ def create_word_report(username, email, prediction_label, confidence, original_i
         run.font.italic = True
         run.font.size = Pt(9)
     
+    # Digital Signature Section
+    doc.add_paragraph()
+    doc.add_heading('Digital Signature', level=1)
+    
+    # Create and add signature
+    try:
+        signature_img = create_digital_signature()
+        signature_bytes = io.BytesIO()
+        signature_img.save(signature_bytes, format='PNG')
+        signature_bytes.seek(0)
+        
+        sig_para = doc.add_paragraph()
+        sig_run = sig_para.add_run()
+        sig_run.add_picture(signature_bytes, width=Inches(4))
+        sig_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    except Exception as e:
+        # Fallback to text
+        sig_para = doc.add_paragraph()
+        sig_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sig_run = sig_para.add_run("Keep Awareness Alive")
+        sig_run.font.size = Pt(14)
+        sig_run.font.bold = True
+        sig_run.font.color.rgb = RGBColor(44, 90, 160)
+        
+        tagline_para = doc.add_paragraph()
+        tagline_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        tagline_run = tagline_para.add_run("Medical AI Analysis Platform")
+        tagline_run.font.size = Pt(10)
+        tagline_run.font.italic = True
+        tagline_run.font.color.rgb = RGBColor(102, 102, 102)
+    
     # Footer
     doc.add_paragraph()
-    footer_para = doc.add_paragraph(f"Generated by Keep Awareness alive | Report ID: {datetime.now().strftime('%Y%m%d%H%M%S')}")
+    footer_para = doc.add_paragraph(f"Report ID: {datetime.now().strftime('%Y%m%d%H%M%S')}")
     footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     footer_para.runs[0].font.size = Pt(8)
     footer_para.runs[0].font.color.rgb = RGBColor(108, 117, 125)
@@ -502,7 +718,8 @@ def create_word_report(username, email, prediction_label, confidence, original_i
     return output_path
 
 
-def create_csv_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path):
+def create_csv_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path,
+                      patient_name=None, patient_id=None, date_of_birth=None, gender=None, age=None):
     """
     Create a CSV report for the patient
     
@@ -519,35 +736,46 @@ def create_csv_report(username, email, prediction_label, confidence, original_im
     status_text = "Pneumonia Detected" if prediction_label == "Pneumonia" else "Normal - No Pneumonia Detected"
     analysis_status = 'High Confidence' if confidence > 0.8 else 'Medium Confidence' if confidence > 0.6 else 'Low Confidence'
     
+    fields = ['Report Title']
+    values = ['Chest X-Ray Analysis Report']
+    
+    if patient_name:
+        fields.append('Patient Name')
+        values.append(patient_name)
+    if patient_id:
+        fields.append('Patient ID')
+        values.append(patient_id)
+    if date_of_birth:
+        fields.append('Date of Birth')
+        values.append(date_of_birth)
+    if gender:
+        fields.append('Gender')
+        values.append(gender)
+    if age:
+        fields.append('Age')
+        values.append(str(age))
+    
+    fields.extend(['Doctor Name', 'Doctor Email', 'Report Date', 'Diagnosis', 'Confidence Level (%)', 
+                   'Analysis Status', 'Recommendation', 'Report ID', 'Disclaimer'])
+    values.extend([
+        username,
+        email,
+        datetime.now().strftime("%B %d, %Y at %I:%M %p"),
+        status_text,
+        f'{confidence_pct:.1f}',
+        analysis_status,
+        ("The analysis indicates signs consistent with pneumonia. Please consult with a healthcare "
+         "professional for proper diagnosis and treatment." if prediction_label == "Pneumonia" 
+         else "The analysis did not detect signs of pneumonia. However, this is not a substitute for "
+         "professional medical evaluation."),
+        datetime.now().strftime('%Y%m%d%H%M%S'),
+        ("This report is generated using automated analysis tools and is provided for educational and "
+         "research purposes only. This application is NOT a substitute for professional medical diagnosis.")
+    ])
+    
     data = {
-        'Field': [
-            'Report Title',
-            'Doctor Name',
-            'Email',
-            'Report Date',
-            'Diagnosis',
-            'Confidence Level (%)',
-            'Analysis Status',
-            'Recommendation',
-            'Report ID',
-            'Disclaimer'
-        ],
-        'Value': [
-            'Chest X-Ray Analysis Report',
-            username,
-            email,
-            datetime.now().strftime("%B %d, %Y at %I:%M %p"),
-            status_text,
-            f'{confidence_pct:.1f}',
-            analysis_status,
-            ("The analysis indicates signs consistent with pneumonia. Please consult with a healthcare "
-             "professional for proper diagnosis and treatment." if prediction_label == "Pneumonia" 
-             else "The analysis did not detect signs of pneumonia. However, this is not a substitute for "
-             "professional medical evaluation."),
-            datetime.now().strftime('%Y%m%d%H%M%S'),
-            ("This report is generated using automated analysis tools and is provided for educational and "
-             "research purposes only. This application is NOT a substitute for professional medical diagnosis.")
-        ]
+        'Field': fields,
+        'Value': values
     }
     
     df = pd.DataFrame(data)
@@ -555,7 +783,8 @@ def create_csv_report(username, email, prediction_label, confidence, original_im
     return output_path
 
 
-def create_json_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path):
+def create_json_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path,
+                       patient_name=None, patient_id=None, date_of_birth=None, gender=None, age=None):
     """
     Create a JSON report for the patient
     
@@ -579,11 +808,24 @@ def create_json_report(username, email, prediction_label, confidence, original_i
         img_bytes.seek(0)
         return base64.b64encode(img_bytes.read()).decode('utf-8')
     
+    patient_info = {}
+    if patient_name:
+        patient_info['patient_name'] = patient_name
+    if patient_id:
+        patient_info['patient_id'] = patient_id
+    if date_of_birth:
+        patient_info['date_of_birth'] = date_of_birth
+    if gender:
+        patient_info['gender'] = gender
+    if age:
+        patient_info['age'] = age
+    
     report_data = {
         'report_title': 'Chest X-Ray Analysis Report',
         'patient_information': {
+            **patient_info,
             'doctor_name': username,
-            'email': email,
+            'doctor_email': email,
             'report_date': datetime.now().strftime("%B %d, %Y at %I:%M %p"),
             'report_id': datetime.now().strftime('%Y%m%d%H%M%S')
         },
@@ -605,8 +847,13 @@ def create_json_report(username, email, prediction_label, confidence, original_i
         'disclaimer': ("This report is generated using automated analysis tools and is provided for educational and "
                       "research purposes only. This application is NOT a substitute for professional medical diagnosis. "
                       "Always consult qualified healthcare professionals for medical decisions."),
+        'digital_signature': {
+            'organization': 'Keep Awareness Alive',
+            'tagline': 'Medical AI Analysis Platform',
+            'signature_date': datetime.now().strftime("%B %d, %Y")
+        },
         'metadata': {
-            'generated_by': 'Keep Awareness alive',
+            'generated_by': 'Keep Awareness Alive',
             'generation_timestamp': datetime.now().isoformat()
         }
     }
@@ -617,7 +864,8 @@ def create_json_report(username, email, prediction_label, confidence, original_i
     return output_path
 
 
-def create_html_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path):
+def create_html_report(username, email, prediction_label, confidence, original_image, heatmap_image, output_path,
+                      patient_name=None, patient_id=None, date_of_birth=None, gender=None, age=None):
     """
     Create an HTML report for the patient
     
@@ -742,12 +990,17 @@ def create_html_report(username, email, prediction_label, confidence, original_i
             
             <h2>Patient Information</h2>
             <table>
+                {f'<tr><th>Patient Name:</th><td>{patient_name}</td></tr>' if patient_name else ''}
+                {f'<tr><th>Patient ID:</th><td>{patient_id}</td></tr>' if patient_id else ''}
+                {f'<tr><th>Date of Birth:</th><td>{date_of_birth}</td></tr>' if date_of_birth else ''}
+                {f'<tr><th>Gender:</th><td>{gender}</td></tr>' if gender else ''}
+                {f'<tr><th>Age:</th><td>{age}</td></tr>' if age else ''}
                 <tr>
                     <th>Doctor Name:</th>
                     <td>{username}</td>
                 </tr>
                 <tr>
-                    <th>Email:</th>
+                    <th>Doctor Email:</th>
                     <td>{email}</td>
                 </tr>
                 <tr>
@@ -793,8 +1046,18 @@ def create_html_report(username, email, prediction_label, confidence, original_i
                 Results may contain inaccuracies and should be reviewed and verified by medical experts.
             </div>
             
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
+                <h3 style="text-align: center; color: #2c5aa0; margin-bottom: 10px;">Digital Signature</h3>
+                <div style="text-align: center; margin: 20px 0;">
+                    <div style="display: inline-block; text-align: center; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px; background-color: #f9f9f9; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div style="font-size: 24px; font-weight: bold; color: #2c5aa0; margin-bottom: 5px;">Keep Awareness Alive</div>
+                        <div style="font-size: 14px; color: #666; font-style: italic; margin-bottom: 10px;">Medical AI Analysis Platform</div>
+                        <div style="font-size: 12px; color: #999; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">{datetime.now().strftime("%B %d, %Y")}</div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="footer">
-                Generated by Keep Awareness alive<br>
                 Report ID: {datetime.now().strftime('%Y%m%d%H%M%S')}
             </div>
         </div>
